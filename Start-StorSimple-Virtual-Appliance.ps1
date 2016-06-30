@@ -76,10 +76,15 @@ workflow Start-StorSimple-Virtual-Appliance
     
     #Connect to Azure
     Write-Output "Connecting to Azure"
-    $AzureAccount = Add-AzureAccount -Credential $cred      
-    $AzureSubscription = Select-AzureSubscription -SubscriptionName $SubscriptionName          
-    if (($AzureSubscription -eq $null) -or ($AzureAccount -eq $null))
-    {
+    try {
+        $AzureAccount = Add-AzureAccount -Credential $cred      
+        $AzureSubscription = Select-AzureSubscription -SubscriptionName $SubscriptionName          
+        if (($AzureSubscription -eq $null) -or ($AzureAccount -eq $null))
+        {
+            throw "Unable to connect to Azure"
+        }
+    }
+    catch {
         throw "Unable to connect to Azure"
     }
 
