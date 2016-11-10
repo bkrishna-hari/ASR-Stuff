@@ -46,7 +46,7 @@ workflow Failover-StorSimple-Volume-Containers
         throw "The AzureCredential asset has not been created in the Automation service."  
     }
     
-    $SubscriptionName = Get-AutomationVariable –Name "$PlanName-AzureSubscriptionName"
+    $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"
     if ($SubscriptionName -eq $null) 
     { 
         throw "The AzureSubscriptionName asset has not been created in the Automation service."  
@@ -58,38 +58,38 @@ workflow Failover-StorSimple-Volume-Containers
         throw "The StorSimRegKey asset has not been created in the Automation service."  
     }
     
-    $ResourceName = Get-AutomationVariable –Name "$PlanName-ResourceName" 
+    $ResourceName = Get-AutomationVariable -Name "$PlanName-ResourceName" 
     if ($ResourceName -eq $null) 
     { 
         throw "The ResourceName asset has not been created in the Automation service."  
     }
      
-    $DeviceName = Get-AutomationVariable –Name "$PlanName-DeviceName" 
+    $DeviceName = Get-AutomationVariable -Name "$PlanName-DeviceName" 
     if ($DeviceName -eq $null) 
     { 
         throw "The DeviceName asset has not been created in the Automation service."  
     }
     
-    $TargetDeviceName = Get-AutomationVariable –Name "$PlanName-TargetDeviceName" 
+    $TargetDeviceName = Get-AutomationVariable -Name "$PlanName-TargetDeviceName" 
     if ($TargetDeviceName -eq $null) 
     { 
         throw "The TargetDeviceName asset has not been created in the Automation service."  
     }    
     
-    $ContainerNames = Get-AutomationVariable –Name "$PlanName-VolumeContainers"
+    $ContainerNames = Get-AutomationVariable -Name "$PlanName-VolumeContainers"
     if ($ContainerNames -eq $null) 
     { 
         throw "The VolumeContainers asset has not been created in the Automation service."  
     }
     $VolumeContainers =  $ContainerNames.Split(",").Trim() 
     
-    $VMGUIDString = Get-AutomationVariable –Name "$PlanName-VMGUIDS" 
+    $VMGUIDString = Get-AutomationVariable -Name "$PlanName-VMGUIDS" 
     if ($VMGUIDString -eq $null) 
     { 
         throw "The VMGUIDS asset has not been created in the Automation service."  
     }
     
-    $AutomationAccountName = Get-AutomationVariable –Name "$PlanName-AutomationAccountName"
+    $AutomationAccountName = Get-AutomationVariable -Name "$PlanName-AutomationAccountName"
     if ($AutomationAccountName -eq $null) 
     { 
         throw "The AutomationAccountName asset has not been created in the Automation service."  

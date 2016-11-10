@@ -37,7 +37,7 @@ workflow Start-StorSimple-Virtual-Appliance
         throw "The AzureCredential asset has not been created in the Automation service."  
     }
     
-    $SubscriptionName = Get-AutomationVariable –Name "$PlanName-AzureSubscriptionName"
+    $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"
     if ($SubscriptionName -eq $null) 
     { 
         throw "The AzureSubscriptionName asset has not been created in the Automation service."  
@@ -49,19 +49,19 @@ workflow Start-StorSimple-Virtual-Appliance
         throw "The StorSimRegKey asset has not been created in the Automation service."  
     }
     
-    $ResourceName = Get-AutomationVariable –Name "$PlanName-ResourceName" 
+    $ResourceName = Get-AutomationVariable -Name "$PlanName-ResourceName" 
     if ($ResourceName -eq $null) 
     { 
         throw "The ResourceName asset has not been created in the Automation service."  
     }
      
-    $TargetDeviceName = Get-AutomationVariable –Name "$PlanName-TargetDeviceName"
+    $TargetDeviceName = Get-AutomationVariable -Name "$PlanName-TargetDeviceName"
     if ($TargetDeviceName -eq $null) 
     { 
         throw "The TargetDeviceName asset has not been created in the Automation service."  
     }
     
-    $TargetDeviceDnsName = Get-AutomationVariable –Name "$PlanName-TargetDeviceDnsName"      
+    $TargetDeviceDnsName = Get-AutomationVariable -Name "$PlanName-TargetDeviceDnsName"      
     if ($TargetDeviceDnsName -eq $null) 
     { 
         throw "The TargetDeviceDnsName asset has not been created in the Automation service."  

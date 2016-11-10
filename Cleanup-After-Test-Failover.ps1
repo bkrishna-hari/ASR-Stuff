@@ -38,7 +38,7 @@ workflow Cleanup-After-Test-Failover
         throw "The AzureCredential asset has not been created in the Automation service."
     }
     
-    $SubscriptionName = Get-AutomationVariable –Name "$PlanName-AzureSubscriptionName"
+    $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"
     if ($SubscriptionName -eq $null)
     {
         throw "The AzureSubscriptionName asset has not been created in the Automation service."
@@ -50,19 +50,19 @@ workflow Cleanup-After-Test-Failover
         throw "The StorSimRegKey asset has not been created in the Automation service."
     }    
     
-    $ResourceName = Get-AutomationVariable –Name "$PlanName-ResourceName" 
+    $ResourceName = Get-AutomationVariable -Name "$PlanName-ResourceName" 
     if ($ResourceName -eq $null)
     {
         throw "The ResourceName asset has not been created in the Automation service."
     }    
      
-    $TargetDeviceName = Get-AutomationVariable –Name "$PlanName-TargetDeviceName" 
+    $TargetDeviceName = Get-AutomationVariable -Name "$PlanName-TargetDeviceName" 
     if ($TargetDeviceName -eq $null) 
     { 
           throw "The TargetDeviceName asset has not been created in the Automation service."
     }
     
-    $TargetDeviceDnsName = Get-AutomationVariable –Name "$PlanName-TargetDeviceDnsName"      
+    $TargetDeviceDnsName = Get-AutomationVariable -Name "$PlanName-TargetDeviceDnsName"      
     if ($TargetDeviceDnsName -eq $null) 
     { 
         throw "The TargetDeviceDnsName asset has not been created in the Automation service."  
@@ -74,7 +74,7 @@ workflow Cleanup-After-Test-Failover
         throw "Invalid TargetDeviceDnsName"
     }
 
-    $AutomationAccountName = Get-AutomationVariable –Name "$PlanName-AutomationAccountName"
+    $AutomationAccountName = Get-AutomationVariable -Name "$PlanName-AutomationAccountName"
     if ($AutomationAccountName -eq $null) 
     { 
         throw "The AutomationAccountName asset has not been created in the Automation service."  
@@ -98,7 +98,7 @@ workflow Cleanup-After-Test-Failover
         throw "Unable to connect to Azure"
     }
         
-    $DummyAsset = Get-AutomationVariable –Name "$PlanName-DummyVMGUID"
+    $DummyAsset = Get-AutomationVariable -Name "$PlanName-DummyVMGUID"
     if ($DummyAsset -ne $null)
     {     
         $Result = Remove-AzureAutomationVariable -AutomationAccountName $AutomationAccountName -Name ($PlanName + "-DummyVMGUID") -Force       

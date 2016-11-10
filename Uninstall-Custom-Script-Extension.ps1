@@ -36,13 +36,13 @@ workflow Uninstall-Custom-Script-Extension
         throw "The AzureCredential asset has not been created in the Automation service."  
     }
     
-    $SubscriptionName = Get-AutomationVariable –Name "$PlanName-AzureSubscriptionName"    
+    $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"    
     if ($SubscriptionName -eq $null) 
     { 
         throw "The AzureSubscriptionName asset has not been created in the Automation service."  
     }
     
-    $VMGUIDString = Get-AutomationVariable –Name "$PlanName-VMGUIDS" 
+    $VMGUIDString = Get-AutomationVariable -Name "$PlanName-VMGUIDS" 
     if ($VMGUIDString -eq $null) 
     { 
         throw "The VMGUIDs asset has not been created in the Automation service."  
