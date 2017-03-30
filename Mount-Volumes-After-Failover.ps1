@@ -1,7 +1,7 @@
 <#
 .DESCRIPTION 
     This runbook creates a script and stores it in a storage account. This script  will connect the iSCSI target and mount the volumes on the VM after a failover. 
-    It then uses the Custom VM Script Extension to run the script on the VM.
+    It then uses the Custom VM Script Extension to run the script on the VM.  Also this runbook adds remote desktop endpoint on Virtual machine.
 
 .DEPENDENCIES
     Azure VM agent should be installed in the VM before this script is executed 
@@ -252,8 +252,12 @@ workflow Mount-Volumes-After-Failover
                 }
             }
 
+<<<<<<< HEAD
             $text = "
             If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] `"Administrator`"))
+=======
+            $text = "If (-NOT ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] `"Administrator`"))
+>>>>>>> origin/master
              {   
              `$arguments = `"& '`" + `$myinvocation.mycommand.definition + `"' `"  
              Start-Process `"`$psHome\powershell.exe`" -Verb runAs -ArgumentList '-noexit',`$arguments
@@ -288,16 +292,49 @@ workflow Mount-Volumes-After-Failover
                 throw "Unable to fetch URI for the file $ScriptName"
             }
         
+<<<<<<< HEAD
             $AzureVM = Get-AzureRmVM -Name $VMRoleName -ResourceGroupName $VMServiceName        
+=======
+            $AzureVM = Get-AzureVM -Name $VMRoleName -ServiceName $VMServiceName        
+>>>>>>> origin/master
             if ($AzureVM -eq $null)
             {
                 throw "Unable to connect to Azure VM $VMRoleName"
             }
+<<<<<<< HEAD
+=======
+			
+            #Update the VM Agent to reflect its installation on Azure
+            Write-Output "Updating VM Agent on $VMRoleName" 
+            $AzureVM.VM.ProvisionGuestAgent = $true
+            try
+            {
+                 $result = Update-AzureVM -Name $VMRoleName -VM $AzureVM.VM -ServiceName $VMServiceName
+            }
+            catch
+            {
+                 throw "Unable to set VM agent property for VM on $VMRoleName"
+            }    
+          
+            Write-Output "Installing custom script extension on $VMRoleName"
+            try
+            { 
+                 $result = Set-AzureVMExtension -ExtensionName CustomScriptExtension -VM $AzureVM -Publisher Microsoft.Compute -Version 1.4 | Update-AzureVM   
+            }    
+            catch
+            {
+                 throw "Unable to install custom script extension on $VMRoleName"
+            }      
+>>>>>>> origin/master
                                     
             Write-Output "Running script on the VM on $VMRoleName"
             try
             {
+<<<<<<< HEAD
                  $result = Set-AzureRmVMCustomScriptExtension -ResourceGroupName $VMServiceName -VMName $VMRoleName -Location $AzureVM.Location -Name "CustomScriptExtension" -TypeHandlerVersion "1.1" -StorageAccountName $StorageAccountName -StorageAccountKey $StorageAccountKey -FileName $ScriptName -ContainerName $ScriptContainer
+=======
+                 $result = Set-AzureVMCustomScriptExtension -VM $AzureVM -FileUri $sasuri -Run $ScriptName | Update-AzureVM
+>>>>>>> origin/master
             }
             catch
             {
@@ -306,6 +343,7 @@ workflow Mount-Volumes-After-Failover
 
             while ($true)
             {
+<<<<<<< HEAD
                 $AzureVM = Get-AzureRmVM -ResourceGroupName $VMServiceName -Name $VMRoleName
                 if ($AzureVM -eq $null)
                 {
@@ -319,6 +357,17 @@ workflow Mount-Volumes-After-Failover
                     continue
                 }
                 elseif ($extension.ProvisioningState -eq 'Succeeded')
+=======
+                $AzureVM = Get-AzureVM -ServiceName $VMServiceName -Name $VMRoleName
+                if ($AzureVM -eq $null)
+                {
+                    throw "Unable to connect to Azure VM"
+                } 
+
+                #Check if the status is finished execution
+                $extension = $AzureVM.ResourceExtensionStatusList | Where-Object {$_.HandlerName -eq "Microsoft.Compute.CustomScriptExtension"}
+                if (($extension -ne $null -and $extension.ExtensionSettingStatus -ne $null -and $extension.ExtensionSettingStatus.FormattedMessage -ne $null -and $extension.ExtensionSettingStatus.FormattedMessage.Message -ne $null -and $extension.ExtensionSettingStatus.FormattedMessage.Message.Contains("Finished executing command")) -or $extension.Status -eq 'Ready')
+>>>>>>> origin/master
                 {
                     break
                 }
@@ -326,6 +375,57 @@ workflow Mount-Volumes-After-Failover
                 Start-Sleep -s $SLEEPTIMEOUT
             }
             Write-Output "Completed running script on VM - $VMRoleName"
+<<<<<<< HEAD
+=======
+			
+            $VMEndpoint = Get-AzureVM -ServiceName $VMServiceName -Name $VMRoleName | Get-AzureEndpoint -Name $EndpointName
+            if ($VMEndpoint -ne $null)
+            {
+                Write-Output "Remote desktop endpoint is already added on VM - $VMRoleName"
+            }
+            else
+            {
+                Write-Output "Adding remote desktop endpoint on VM - $VMRoleName"
+                $RetryCount = 0
+                while ($RetryCount -le 2)
+                {
+                    $isSuccessful = $true
+                    try
+                    {
+                         $ConfigResult = Get-AzureVM -ServiceName $VMServiceName -Name $VMRoleName | Add-AzureEndpoint -Name $EndpointName -Protocol $EndpointProtocol -PublicPort $EndpointPublicPort -LocalPort $EndpointLocalPort | Update-AzureVM
+                    }
+                    catch
+                    {
+                         Write-Output "Failed to add remote desktop endpoint on VM - $VMRoleName"
+                    }
+				     
+                    $VMEndpoint = Get-AzureVM -ServiceName $VMServiceName -Name $VMRoleName | Get-AzureEndpoint -Name $EndpointName
+                    if ($VMEndpoint -ne $null)
+                    {
+                         Write-Output "Remote desktop endpoint added successfully"
+                         $AzureEndpointConfig = $null
+                         $isSuccessful = $true
+                         break
+                    }
+                    else
+                    {
+                         Write-Output "Retrying to add remote desktop endpoint"
+                         $EndpointPublicPort = Get-Random -minimum 1000 -maximum 65534
+                         $AzureEndpointConfig = $null
+                         $isSuccessful = $false
+                    }
+                    
+                    # Sleep for 10 seconds before trying again
+                    Start-Sleep -s $SLEEPTIMEOUT
+                    $RetryCount += 1
+                }
+					
+                if ($isSuccessful -eq $false)
+                {
+                     Write-Output "Failed to add remote desktop endpoint on VM - $VMRoleName"
+                }
+            }
+>>>>>>> origin/master
         }
 		
         $EndpointPublicPort++		
