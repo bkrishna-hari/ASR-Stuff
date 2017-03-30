@@ -1,4 +1,4 @@
-﻿<#
+<#
 .DESCRIPTION
     This runbook uninstalls the Custom Script Extension from the Azure VMs (brought up after a failover)
     This is required so that after a failover -> failback -> failover, the Custom Script Extension can trigger the iSCSI script
@@ -36,13 +36,13 @@ workflow Uninstall-Custom-Script-Extension
         throw "The AzureCredential asset has not been created in the Automation service."  
     }
     
-    $SubscriptionName = Get-AutomationVariable –Name "$PlanName-AzureSubscriptionName"    
+    $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"    
     if ($SubscriptionName -eq $null) 
     { 
         throw "The AzureSubscriptionName asset has not been created in the Automation service."  
     }
     
-    $VMGUIDString = Get-AutomationVariable –Name "$PlanName-VMGUIDS" 
+    $VMGUIDString = Get-AutomationVariable -Name "$PlanName-VMGUIDS" 
     if ($VMGUIDString -eq $null) 
     { 
         throw "The VMGUIDs asset has not been created in the Automation service."  
@@ -56,9 +56,10 @@ workflow Uninstall-Custom-Script-Extension
     #Connect to Azure
     Write-Output "Connecting to Azure"
     try {
+        $AzureRmAccount = Login-AzureRmAccount -Credential $cred -SubscriptionName $SubscriptionName
         $AzureAccount = Add-AzureAccount -Credential $cred      
         $AzureSubscription = Select-AzureSubscription -SubscriptionName $SubscriptionName          
-        if (($AzureSubscription -eq $null) -or ($AzureAccount -eq $null))
+        if (($AzureSubscription -eq $null) -or ($AzureAccount -eq $null) -or ($AzureRmAccount -eq $null))
         {
             throw "Unable to connect to Azure"
         }
@@ -85,7 +86,7 @@ workflow Uninstall-Custom-Script-Extension
             throw "Role name is null for VMGUID - $VMGUID"
         }
 
-        $VMServiceName = $VMContext.CloudServiceName           
+        $VMServiceName = $VMContext.ResourceGroupName       
         if ($VMServiceName -eq $null)
         {
             throw "Service name is null for VMGUID - $VMGUID"    
@@ -96,7 +97,7 @@ workflow Uninstall-Custom-Script-Extension
             $VMRoleName = $Using:VMRoleName
             $VMServiceName = $Using:VMServiceName            
             
-            $AzureVM = Get-AzureVM -Name $VMRoleName -ServiceName $VMServiceName              
+            $AzureVM = Get-AzureRmVM -Name $VMRoleName -ResourceGroupName $VMServiceName              
             if ($AzureVM -eq $null)
             {
                 throw "Unable to fetch details of Azure VM - $VMRoleName"
@@ -104,8 +105,8 @@ workflow Uninstall-Custom-Script-Extension
             
             Write-Output "Uninstalling custom script extension on $VMRoleName" 
             try
-            { 
-                $result = Set-AzureVMCustomScriptExtension -Uninstall -ReferenceName CustomScriptExtension -VM $AzureVM | Update-AzureVM
+            {
+                $result = Remove-AzureRmVMCustomScriptExtension -ResourceGroupName $VMServiceName -VMName $VMRoleName -Name "CustomScriptExtension" -Force
             }  
               
             catch
