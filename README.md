@@ -66,7 +66,7 @@ Please refer to [Automated DR solution for Active Directory and DNS using Azure 
 This step requires that you prepare the on-premises file server environment, create and prepare an Azure Site Recovery vault, and enable file protection of the VM.
 
 #### To prepare the on-premises file server environment
-1. Set the **User Account Control** to **Never Notify**. This is required so that you can use Azure automation scripts to connect the iSCSI targets after fail over by Azure Site Recovery.
+``.``. Set the **User Account Control** to **Never Notify**. This is required so that you can use Azure automation scripts to connect the iSCSI targets after fail over by Azure Site Recovery.
 
    1. Press the Windows key +Q and search for **UAC**.
    2. Select **Change User Account Control settings**.
@@ -74,7 +74,7 @@ This step requires that you prepare the on-premises file server environment, cre
    4. Click **OK** and then select **Yes** when prompted.
 
       ![](./media/storsimple-dr-using-asr/image1.png)
-2. Install the VM Agent on each of the file server VMs. This is required so that you can run Azure automation scripts on the failed over VMs.
+``.``. Install the VM Agent on each of the file server VMs. This is required so that you can run Azure automation scripts on the failed over VMs.
 
    1. [Download the agent](http://aka.ms/vmagentwin) to `C:\\Users\\<username>\\Downloads`.
    2. Open Windows PowerShell in Administrator mode (Run as Administrator), and then enter the following command to navigate to the download location:
@@ -85,10 +85,10 @@ This step requires that you prepare the on-premises file server environment, cre
       > The file name may change depending on the version.
       >
       >
-3. Click **Next**.
-4. Accept the **Terms of Agreement** and then click **Next**.
-5. Click **Finish**.
-6. Create file shares using volumes carved out of StorSimple storage. For more information, see [Use the StorSimple Manager service to manage volumes](storsimple-manage-volumes.md).
+``.``. Click **Next**.
+``.``. Accept the **Terms of Agreement** and then click **Next**.
+``.``. Click **Finish**.
+``.``. Create file shares using volumes carved out of StorSimple storage. For more information, see [Use the StorSimple Manager service to manage volumes](storsimple-manage-volumes.md).
 
    1. On your on-premises VMs, press the Windows key +Q and search for **iSCSI**.
    2. Select **iSCSI initiator**.
