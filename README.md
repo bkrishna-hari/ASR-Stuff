@@ -129,7 +129,7 @@ If you have not selected the **Enable a default backup for this volume** option 
 ### Configure the network
 For the file server VM, configure network settings in Azure Site Recovery so that the VM networks are attached to the correct DR network after failover.
 
-You can select the VM in the **Replicated items** to configure the network settings, as shown in the following illustration.
+You can select the VM in the **Replicated items** tab to configure the network settings, as shown in the following illustration.
 
 ![](./media/storsimple-dr-using-asr/image2.png)
 
@@ -137,8 +137,8 @@ You can select the VM in the **Replicated items** to configure the network setti
 You can create a recovery plan in ASR to automate the failover process of the file shares. If a disruption occurs, you can bring the file shares up in a few minutes with just a single click. To enable this automation, you will need an Azure automation account.
 
 #### To create the account
-1. Go to the Azure portal and go to the **Automation** section.
-2. Create a new automation account. Keep it in the same geo/region in which the StorSimple Cloud Appliance and storage accounts were created.
+1. Go to the Azure portal &gt; **Automation** section.
+2. Create a new automation account. Keep it in the same geo/region in which the StorSimple Cloud Appliance and Storage Accounts were created.
 3. Go to the Automation account, click **Runbooks** &gt; **Browse Gallery** to import all the required runbooks into the automation account.
 4. Add the following runbooks by finding **Disaster Recovery** tag in the gallery:
 
@@ -152,10 +152,10 @@ You can create a recovery plan in ASR to automate the failover process of the fi
 5. Publish all the scripts by selecting the runbook in the automation account and click **Edit** &gt; **Publish** and then **Yes** to the verification message. After this step, the **Runbooks** tab will appear as follows:
 
     ![](./media/storsimple-dr-using-asr/image4.png)
-6. In the automation account go to the **Assets** tab, click **Credentials** &gt; **+ Add a credential**, and add your Azure credentials – name the asset AzureCredential.
+6. In the automation account, go to the **Assets** tab &gt; click **Credentials** &gt; **+ Add a credential**, and add your Azure credentials – name the asset AzureCredential.
 
    Use the Windows PowerShell Credential. This should be a credential that contains an Org ID user name and password with access to this Azure subscription and with multi-factor authentication disabled. This is required to authenticate on behalf of the user during the failovers and to bring up the file server volumes on the DR site.
-7. In the automation account, select the **Assets** tab and then click **Variables** &gt; **Add a variable** and add the following variables. You can choose to encrypt these assets. These variables are recovery plan–specific. If your recovery plan (which you will create in the next step) name is TestPlan, then your variables should be TestPlan-StorSimRegKey, TestPlan-AzureSubscriptionName, and so on.
+7. In the automation account, select the **Assets** tab &gt; click **Variables** &gt; **Add a variable** and add the following variables. You can choose to encrypt these assets. These variables are recovery plan–specific. If your recovery plan (which you will create in the next step) name is TestPlan, then your variables should be TestPlan-StorSimRegKey, TestPlan-AzureSubscriptionName, and so on.
 
    * *RecoveryPlanName***-StorSimRegKey**: The registration key for the StorSimple Manager service.
    * *RecoveryPlanName***-AzureSubscriptionName**: The name of the Azure subscription.
@@ -167,23 +167,23 @@ You can create a recovery plan in ASR to automate the failover process of the fi
    * *RecoveryPlanName***-StorageAccountName**: The storage account name in which the script (which has to run on the failed over VM) will be stored. This can be any storage account that has some space to store the script temporarily.
    * *RecoveryPlanName***-StorageAccountKey**: The access key for the above storage account.
    * *RecoveryPlanName***-ScriptContainer**: The name of the container in which the script will be stored in the cloud. If the container doesn’t exist, it will be created.
-   * *RecoveryPlanName***-VMGUIDS**: Upon protecting a VM, Azure Site Recovery assigns every VM a unique ID that gives the details of the failed over VM. To obtain the VMGUID, select the **Recovery Services** tab and then click **Protected Item** &gt; **Protection Groups** &gt; **Machines** &gt; **Properties**. If you have multiple VMs, then add the GUIDs as a comma-separated string.
+   * *RecoveryPlanName***-VMGUIDS**: Upon protecting a VM, Azure Site Recovery assigns every VM a unique ID that gives the details of the failed over VM. To obtain the VMGUID, select the **Recovery Services** tab and click **Protected Item** &gt; **Protection Groups** &gt; **Machines** &gt; **Properties**. If you have multiple VMs, then add the GUIDs as a comma-separated string.
    * *RecoveryPlanName***-AutomationAccountName** – The name of the automation account in which you have added the runbooks and the assets.
 
   For example, if the name of the recovery plan is fileServerpredayRP, then your **Credentials** & **Variables** tabs should appear as follows after you add all the assets.
 
    ![](./media/storsimple-dr-using-asr/image5.png)
-   
+
 8. Go to the **Recovery Services** section and select the Azure Site Recovery vault that you created earlier.
 9. Select the **Recovery Plans (Site Recovery)** option from **Manage** group and create a new recovery plan as follows:
 
-   a.  Click **+ Recoveer plan** button, opens below blade.
+   1.  Click **+ Recoveer plan** button, opens below blade.
 
       ![](./media/storsimple-dr-using-asr/image6.png)
 
-   b.  Enter a recovery plan name, choose Source, Target & Deployment model values.
+   1.  Enter a recovery plan name, choose Source, Target & Deployment model values.
 
-   c.  Select the VMs from the protection group that you want to include in the recovery plan then Click **Ok** button.
+   c.  Select the VMs from the protection group that you want to include in the recovery plan and click **OK** button.
 
    d.  Select Recovery plan that you created earlier, click **Customize** button to open the Recovery plan customization view.
 
@@ -220,8 +220,8 @@ Refer to the [Active Directory DR Solution](../site-recovery/site-recovery-activ
 4. Select the Azure virtual network to which Azure VMs will be connected after failover occurs.
 
    ![](./media/storsimple-dr-using-asr/image8.png)
-5. Click **OK** to begin the failover. You can track progress by clicking on the VM to open its properties, or on the **Test Failover job** in vault name > **Jobs** > **Site Recovery jobs**.
-6. After the failover completes, you should also be able to see the replica Azure machine appear in the Azure portal > **Virtual Machines**. You can perform your validations.
+5. Click **OK** to begin the failover. You can track progress by clicking on the VM to open its properties, or on the **Test failover job** in vault name &gt; **Jobs** &gt; **Site recovery jobs**.
+6. After the failover completes, you should also be able to see the replica Azure machine appear in the Azure portal &gt; **Virtual Machines**. You can perform your validations.
 7. After the validations are done, click **Validations Complete**. This will cleanup the StorSimple Volumes and shutdown the StorSimple Cloud Appliance.
 8. Once you're done, click **Cleanup test failover** on the recovery plan. In Notes record and save any observations associated with the test failover. This will delete the virtual machine that were created during test failover.
 
@@ -229,8 +229,8 @@ Refer to the [Active Directory DR Solution](../site-recovery/site-recovery-activ
    During a planned failover, the on-premises file server VM is shut down gracefully and a cloud backup snapshot of the volumes on StorSimple device is taken. The StorSimple volumes are failed over to the virtual device, a replica VM is brought up on Azure, and the volumes are attached to the VM.
 
 #### To perform a planned failover
-1. In the Azure portal, select **Recovery services** vault > **Recovery plans (Site recovery)** > **recoveryplan_name** created for the file server VM.
-2. On the Recovery plan blade, Click **More** >  **Planned failover**.
+1. In the Azure portal, select **Recovery services** vault &gt; **Recovery plans (Site recovery)** &gt; **recoveryplan_name** created for the file server VM.
+2. On the Recovery plan blade, Click **More** &gt;  **Planned failover**.
 
    ![](./media/storsimple-dr-using-asr/image9.png)
 3. On the **Confirm Planned Failover** blade, choose the source and target locations and select target network and click the check icon ✓ to start the failover process.
@@ -241,20 +241,20 @@ Refer to the [Active Directory DR Solution](../site-recovery/site-recovery-activ
 During an unplanned failover, the StorSimple volumes are failed over to the virtual device, a replica VM will be brought up on Azure, and the volumes are attached to the VM.
 
 #### To perform a failover
-1. In the Azure portal, select **Recovery services** vault > **Recovery plans (Site recovery)** > **recoveryplan_name** created for the file server VM.
-2. On the Recovery plan blade, Click **More** >  **Failover**.
-3. On the **Failover** page, choose the source and target locations.
-4. Select **Full download** to specify that Site recovery should try to shut down the protected virtual machine and synchronize the data so that the latest version of the data will be failed over.
-5. After the failover, the virtual machines are in a commit pending state. Click Commit to commit the failover.
+1. In the Azure portal, select **Recovery services** vault &gt; **Recovery plans (Site recovery)** &gt; **recoveryplan_name** created for the file server VM.
+2. On the Recovery plan blade, Click **More** &gt;  **Failover**.
+3. On the **Confirm Failover** blade, choose the source and target locations.
+4. Select **Shut down virtual machines and synchronize the latest data** to specify that Site recovery should try to shut down the protected virtual machine and synchronize the data so that the latest version of the data will be failed over.
+5. After the failover, the virtual machines are in a commit pending state. Click **Commit** to commit the failover.
 
 
 ## Perform a failback
 During a failback, StorSimple volume containers are failed over back to the physical device after a backup is taken.
 
 #### To perform a failback
-1. In the Azure portal, select **Recovery services** vault > **Recovery plans (Site recovery)** > **recoveryplan_name** created for the file server VM.
-2. On the Recovery plan blade, Click **More** >  **Planned Failover**.
-3. Select the appropriate Data synchronization and VM creation options.
+1. In the Azure portal, select **Recovery services** vault &gt; **Recovery plans (Site recovery)** &gt; **recoveryplan_name** created for the file server VM.
+2. On the Recovery plan blade, Click **More** &gt;  **Planned Failover**.
+3. Choose the source and target locations, select the appropriate Data synchronization and VM creation options.
 4. Click **OK** button to start the failback process.
 
    ![](./media/storsimple-dr-using-asr/image10.png)
