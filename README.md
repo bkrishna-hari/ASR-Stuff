@@ -177,11 +177,11 @@ You can create a recovery plan in ASR to automate the failover process of the fi
 8. Go to the **Recovery Services** section and select the Azure Site Recovery vault that you created earlier.
 9. Select the **Recovery Plans (Site Recovery)** option from **Manage** group and create a new recovery plan as follows:
 
-   1.  Click **+ Recoveer plan** button, opens below blade.
+   a.  Click **+ Recoveer plan** button, opens below blade.
 
       ![](./media/storsimple-dr-using-asr/image6.png)
 
-   1.  Enter a recovery plan name, choose Source, Target & Deployment model values.
+   b.  Enter a recovery plan name, choose Source, Target & Deployment model values.
 
    c.  Select the VMs from the protection group that you want to include in the recovery plan and click **OK** button.
 
