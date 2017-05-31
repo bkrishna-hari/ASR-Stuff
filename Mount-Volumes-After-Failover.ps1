@@ -22,7 +22,7 @@
     'RecoveryPlanName'-ResourceName: The name of the StorSimple resource
     'RecoveryPlanName'-DeviceName: The device which has to be failed over
     'RecoveryPlanName'-TargetDeviceName: The device on which the Volume Containers are to be failed over
-    'RecoveryPlanName'-TargetDeviceDnsName: The DNS name of the TargetDevice (can be found out from the Virtual Machineâ€™s section) 
+    'RecoveryPlanName'-TargetDeviceDnsName: The DNS name of the TargetDevice (can be found out from the Virtual MachineÃ¢â‚¬â„¢s section) 
     'RecoveryPlanName'-StorageAccountName: The storage account name in which the script will be stored
     'RecoveryPlanName'-StorageAccountKey: The access key for the storage account
     'RecoveryPlanName'-ScriptContainer: The name of the Storage Container in which the script will be stored 
@@ -49,12 +49,6 @@ workflow Mount-Volumes-After-Failover
     $EndpointProtocol = "TCP"
     $EndpointLocalPort = 3389
     $EndpointPublicPort = 3389
-    
-    $cred = Get-AutomationPSCredential -Name "AzureCredential"
-    if ($cred -eq $null) 
-    { 
-        throw "The AzureCredential asset has not been created in the Automation service."  
-    }
     
     $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"    
     if ($SubscriptionName -eq $null) 
@@ -126,27 +120,59 @@ workflow Mount-Volumes-After-Failover
         throw "The AutomationAccountName asset has not been created in the Automation service."  
     }
 
-    # Stops the script at first exception
-    # Setting this option to suspend if Azure-Login fails
-    $ErrorActionPreference = "Stop"
-    
-    # Connect to Azure
     Write-Output "Connecting to Azure"
-    try {
-        $AzureRmAccount = Login-AzureRmAccount -Credential $cred -SubscriptionName $SubscriptionName
-        $AzureAccount = Add-AzureAccount -Credential $cred
-        $AzureSubscription = Select-AzureSubscription -SubscriptionName $SubscriptionName
-        if (($AzureSubscription -eq $null) -or ($AzureAccount -eq $null) -or ($AzureRmAccount -eq $null))
+    try
+    {
+        $connectionName = "AzureRunAsConnection"
+        $ConnectionAssetName = "AzureClassicRunAsConnection"
+        $servicePrincipalConnection=Get-AutomationConnection -Name $connectionName
+        if ($servicePrincipalConnection -eq $null) 
+        { 
+            throw "The AzureRunAsConnection asset has not been created in the Automation service."  
+        }
+        $AzureRmAccount = Add-AzureRmAccount `
+                            -ServicePrincipal `
+                            -TenantId $servicePrincipalConnection.TenantId `
+                            -ApplicationId $servicePrincipalConnection.ApplicationId `
+                            -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint
+        $AzureRmSubscription = Select-AzureRmSubscription -SubscriptionName $SubscriptionName
+
+
+        # Get the connection
+        $connection = Get-AutomationConnection -Name $connectionAssetName        
+
+        # Authenticate to Azure with certificate
+        $Conn = Get-AutomationConnection -Name $ConnectionAssetName
+        if ($Conn -eq $null)
+        {
+            throw "Could not retrieve connection asset: $ConnectionAssetName. Assure that this asset exists in the Automation account."
+        }
+
+        $CertificateAssetName = $Conn.CertificateAssetName
+        $AzureCert = Get-AutomationCertificate -Name $CertificateAssetName
+        if ($AzureCert -eq $null)
+        {
+            throw "Could not retrieve certificate asset: $CertificateAssetName. Assure that this asset exists in the Automation account."
+        }
+
+        $AzureAccount = Set-AzureSubscription -SubscriptionName $Conn.SubscriptionName -SubscriptionId $Conn.SubscriptionID -Certificate $AzureCert 
+        $AzureSubscription = Select-AzureSubscription -SubscriptionId $Conn.SubscriptionID
+        
+        if ($AzureRmAccount -eq $null -or $AzureRmSubscription -eq $null -or $AzureAccount -eq $null -or $AzureSubscription -eq $null)
         {
             throw "Unable to connect to Azure"
         }
     }
     catch {
-        throw "Unable to connect to Azure"
+        if (!$servicePrincipalConnection)
+        {
+            $ErrorMessage = "Connection $connectionName not found."
+            throw $ErrorMessage
+        } else{
+            Write-Error -Message $_.Exception
+            throw $_.Exception
+        }
     }
-
-    # Reset ErrorActionPreference if Azure-Login succeeded
-    $ErrorActionPreference = "continue"
 
     # Connect to the StorSimple Resource
     Write-Output "Connecting to StorSimple Resource $ResourceName"

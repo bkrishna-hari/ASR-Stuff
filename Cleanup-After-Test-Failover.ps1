@@ -25,18 +25,12 @@ workflow Cleanup-After-Test-Failover
 {
     Param 
     ( 
-        [parameter(Mandatory=$true)] 
+        [parameter(Mandatory=$true)]
         [Object]
         $RecoveryPlanContext
     )    
         
     $PlanName = $RecoveryPlanContext.RecoveryPlanName
-    
-    $cred = Get-AutomationPSCredential -Name "AzureCredential"
-    if ($cred -eq $null)
-    {
-        throw "The AzureCredential asset has not been created in the Automation service."
-    }
     
     $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"
     if ($SubscriptionName -eq $null)
@@ -80,26 +74,59 @@ workflow Cleanup-After-Test-Failover
         throw "The AutomationAccountName asset has not been created in the Automation service."  
     }
 
-    # Stops the script at first exception
-    # Setting this option to suspend if Azure-Login fails
-    $ErrorActionPreference = "Stop"
-    
-    # Connect to Azure
     Write-Output "Connecting to Azure"
-    try {
-        $AzureAccount = Add-AzureAccount -Credential $cred      
-        $AzureSubscription = Select-AzureSubscription -SubscriptionName $SubscriptionName          
-        if (($AzureSubscription -eq $null) -or ($AzureAccount -eq $null))
+    try
+    {
+        $connectionName = "AzureRunAsConnection"
+        $ConnectionAssetName = "AzureClassicRunAsConnection"
+        $servicePrincipalConnection=Get-AutomationConnection -Name $connectionName
+        if ($servicePrincipalConnection -eq $null) 
+        { 
+            throw "The AzureRunAsConnection asset has not been created in the Automation service."  
+        }
+        $AzureRmAccount = Add-AzureRmAccount `
+                            -ServicePrincipal `
+                            -TenantId $servicePrincipalConnection.TenantId `
+                            -ApplicationId $servicePrincipalConnection.ApplicationId `
+                            -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint
+        $AzureRmSubscription = Select-AzureRmSubscription -SubscriptionName $SubscriptionName
+
+
+        # Get the connection
+        $connection = Get-AutomationConnection -Name $connectionAssetName        
+
+        # Authenticate to Azure with certificate
+        $Conn = Get-AutomationConnection -Name $ConnectionAssetName
+        if ($Conn -eq $null)
+        {
+            throw "Could not retrieve connection asset: $ConnectionAssetName. Assure that this asset exists in the Automation account."
+        }
+
+        $CertificateAssetName = $Conn.CertificateAssetName
+        $AzureCert = Get-AutomationCertificate -Name $CertificateAssetName
+        if ($AzureCert -eq $null)
+        {
+            throw "Could not retrieve certificate asset: $CertificateAssetName. Assure that this asset exists in the Automation account."
+        }
+
+        $AzureAccount = Set-AzureSubscription -SubscriptionName $Conn.SubscriptionName -SubscriptionId $Conn.SubscriptionID -Certificate $AzureCert 
+        $AzureSubscription = Select-AzureSubscription -SubscriptionId $Conn.SubscriptionID
+        
+        if ($AzureRmAccount -eq $null -or $AzureRmSubscription -eq $null -or $AzureAccount -eq $null -or $AzureSubscription -eq $null)
         {
             throw "Unable to connect to Azure"
         }
     }
     catch {
-        throw "Unable to connect to Azure"
+        if (!$servicePrincipalConnection)
+        {
+            $ErrorMessage = "Connection $connectionName not found."
+            throw $ErrorMessage
+        } else{
+            Write-Error -Message $_.Exception
+            throw $_.Exception
+        }
     }
-
-    # Reset ErrorActionPreference if Azure-Login succeeded
-    $ErrorActionPreference = "continue"
         
     $DummyAsset = Get-AutomationVariable -Name "$PlanName-DummyVMGUID"
     if ($DummyAsset -ne $null)
@@ -118,9 +145,9 @@ workflow Cleanup-After-Test-Failover
         }       
     
         $TargetDevice = Get-AzureStorSimpleDevice -DeviceName $TargetDeviceName
-        if (($TargetDevice -eq $null) -or ($TargetDevice.Status -ne "Online"))
+        if ($TargetDevice -eq $null)
         {
-            throw "Target device $TargetDeviceName does not exist or is not online"
+            throw "Target device $TargetDeviceName does not exist"
         }
             
         $SLEEPTIMEOUT = 10    # Value in seconds
@@ -303,31 +330,39 @@ workflow Cleanup-After-Test-Failover
           $TargetDeviceName = $Using:TargetDeviceName
           $TargetDeviceServiceName = $Using:TargetDeviceServiceName 
           $SLEEPTIMEOUT = $Using:SLEEPTIMEOUT
-          
-          $RetryCount = 0
-          while ($RetryCount -lt 2)
-          {   
-              $Result = Stop-AzureVM -ServiceName $TargetDeviceServiceName -Name $TargetDeviceName -Force
-              if ($Result.OperationStatus -eq "Succeeded")
-              {
-                  Write-Output "SVA succcessfully turned off"   
-                  break
-              }
-              else
-              {
-                  if ($RetryCount -eq 0)
+    
+          $TargetDevice = Get-AzureStorSimpleDevice -DeviceName $TargetDeviceName
+          if ($TargetDevice -ne $null -and $TargetDevice.Status -eq "Offline")
+          {
+              Write-Output "SVA turned off"
+          }
+          else
+          {
+              $RetryCount = 0
+              while (($TargetDevice -eq $null) -or ($TargetDevice.Status -ne "Online") -and $RetryCount -lt 2)
+              {   
+                  $Result = Stop-AzureVM -ServiceName $TargetDeviceServiceName -Name $TargetDeviceName -Force
+                  if ($Result.OperationStatus -eq "Succeeded")
                   {
-                      Write-Output "Retrying for SVA shutdown"
+                      Write-Output "SVA succcessfully turned off"   
+                      break
                   }
                   else
                   {
-                      Write-Output "Unable to stop the SVA VM"
+                      if ($RetryCount -eq 0)
+                      {
+                          Write-Output "Retrying for SVA shutdown"
+                      }
+                      else
+                      {
+                          Write-Output "Unable to stop the SVA VM"
+                      }
+                                      
+                      Start-Sleep -s $SLEEPTIMEOUT
+                      $RetryCount += 1   
                   }
-                                 
-                  Start-Sleep -s $SLEEPTIMEOUT
-                  $RetryCount += 1   
               }
-          }
+           }
        }
     }
 }
