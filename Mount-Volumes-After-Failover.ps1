@@ -9,10 +9,6 @@
 
 .ASSETS 
     [You can choose to encrypt these assets ]
-    
-    AzureCredential [Windows PS Credential]:
-        A credential containing an Org Id username / password with access to this Azure subscription
-        Multi Factor Authentication must be disabled for this credential
 
     The following have to be added with the Recovery Plan Name as a prefix, eg - TestPlan-StorSimRegKey [where TestPlan is the name of the recovery plan]
     [All these are String variables]
