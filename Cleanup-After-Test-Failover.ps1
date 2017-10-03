@@ -10,11 +10,10 @@
     The following have to be added with the Recovery Plan Name as a prefix, eg - TestPlan-StorSimRegKey [where TestPlan is the name of the recovery plan]
     [All these are String variables]
 
-    'RecoveryPlanName'-AzureSubscriptionName: The name of the Azure Subscription
-    'RecoveryPlanName'-StorSimRegKey: The registration key for the StorSimple manager
+    BaseUrl: The resource manager url for the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
+    'RecoveryPlanName'-ResourceGroupName: The name of the resource group on which to read storsimple virtual appliance info
     'RecoveryPlanName'-ResourceName: The name of the StorSimple resource
     'RecoveryPlanName'-TargetDeviceName: The device on which the test failover was performed (the one which needs to be cleaned up)
-    'RecoveryPlanName'-AutomationAccountName: The name of the Automation Account in which the various runbooks are stored
 #>
 
 workflow Cleanup-After-Test-Failover
@@ -24,341 +23,265 @@ workflow Cleanup-After-Test-Failover
         [parameter(Mandatory=$true)]
         [Object]
         $RecoveryPlanContext
-    )    
-        
+    )
+    
     $PlanName = $RecoveryPlanContext.RecoveryPlanName
     
-    $SubscriptionName = Get-AutomationVariable -Name "$PlanName-AzureSubscriptionName"
-    if ($SubscriptionName -eq $null)
-    {
-        throw "The AzureSubscriptionName asset has not been created in the Automation service."
-    }    
+    $ResourceGroupName = Get-AutomationVariable -Name "$PlanName-ResourceGroupName" 
+    if ($ResourceGroupName -eq $null) 
+    { 
+        throw "The ResourceGroupName asset has not been created in the Automation service."  
+    }
     
-    $RegistrationKey = Get-AutomationVariable -Name "$PlanName-StorSimRegKey"
-    if ($RegistrationKey -eq $null)
-    {
-        throw "The StorSimRegKey asset has not been created in the Automation service."
-    }    
-    
-    $ResourceName = Get-AutomationVariable -Name "$PlanName-ResourceName" 
-    if ($ResourceName -eq $null)
-    {
-        throw "The ResourceName asset has not been created in the Automation service."
-    }    
+    $ManagerName = Get-AutomationVariable -Name "$PlanName-ManagerName" 
+    if ($ManagerName -eq $null) 
+    { 
+        throw "The ManagerName asset has not been created in the Automation service."
+    }
      
-    $TargetDeviceName = Get-AutomationVariable -Name "$PlanName-TargetDeviceName" 
+    $TargetDeviceName = Get-AutomationVariable -Name "$PlanName-TargetDeviceName"
     if ($TargetDeviceName -eq $null) 
     { 
-          throw "The TargetDeviceName asset has not been created in the Automation service."
+        throw "The TargetDeviceName asset has not been created in the Automation service."  
     }
-    
-    $TargetDeviceDnsName = Get-AutomationVariable -Name "$PlanName-TargetDeviceDnsName"      
-    if ($TargetDeviceDnsName -eq $null) 
+     
+    $BaseUrl = Get-AutomationVariable -Name "BaseUrl"
+    if ($BaseUrl -eq $null) 
     { 
-        throw "The TargetDeviceDnsName asset has not been created in the Automation service."  
-    } 
-    
-    $TargetDeviceServiceName = $TargetDeviceDnsName.Replace(".cloudapp.net","")
-    if ($TargetDeviceServiceName -eq $null)
+        throw "The BaseUrl asset has not been created in the Automation service."  
+    }
+
+    $ClientCertificate = Get-AutomationCertificate -Name "AzureRunAsCertificate"
+    if ($ClientCertificate -eq $null)
     {
-        throw "Invalid TargetDeviceDnsName"
+         throw "The AzureRunAsCertificate asset has not been created in the Automation service."
     }
 
-    $AutomationAccountName = Get-AutomationVariable -Name "$PlanName-AutomationAccountName"
-    if ($AutomationAccountName -eq $null) 
-    { 
-        throw "The AutomationAccountName asset has not been created in the Automation service."  
-    }
-
-    Write-Output "Connecting to Azure"
-    try
+    $ServicePrincipalConnection = Get-AutomationConnection -Name "AzureRunAsConnection"
+    if ($ServicePrincipalConnection -eq $null)
     {
-        $connectionName = "AzureRunAsConnection"
-        $ConnectionAssetName = "AzureClassicRunAsConnection"
-        $servicePrincipalConnection=Get-AutomationConnection -Name $connectionName
-        if ($servicePrincipalConnection -eq $null) 
-        { 
-            throw "The AzureRunAsConnection asset has not been created in the Automation service."  
-        }
-        $AzureRmAccount = Add-AzureRmAccount `
-                            -ServicePrincipal `
-                            -TenantId $servicePrincipalConnection.TenantId `
-                            -ApplicationId $servicePrincipalConnection.ApplicationId `
-                            -CertificateThumbprint $servicePrincipalConnection.CertificateThumbprint
-        $AzureRmSubscription = Select-AzureRmSubscription -SubscriptionName $SubscriptionName
-
-
-        # Get the connection
-        $connection = Get-AutomationConnection -Name $connectionAssetName        
-
-        # Authenticate to Azure with certificate
-        $Conn = Get-AutomationConnection -Name $ConnectionAssetName
-        if ($Conn -eq $null)
-        {
-            throw "Could not retrieve connection asset: $ConnectionAssetName. Assure that this asset exists in the Automation account."
-        }
-
-        $CertificateAssetName = $Conn.CertificateAssetName
-        $AzureCert = Get-AutomationCertificate -Name $CertificateAssetName
-        if ($AzureCert -eq $null)
-        {
-            throw "Could not retrieve certificate asset: $CertificateAssetName. Assure that this asset exists in the Automation account."
-        }
-
-        $AzureAccount = Set-AzureSubscription -SubscriptionName $Conn.SubscriptionName -SubscriptionId $Conn.SubscriptionID -Certificate $AzureCert 
-        $AzureSubscription = Select-AzureSubscription -SubscriptionId $Conn.SubscriptionID
-        
-        if ($AzureRmAccount -eq $null -or $AzureRmSubscription -eq $null -or $AzureAccount -eq $null -or $AzureSubscription -eq $null)
-        {
-            throw "Unable to connect to Azure"
-        }
+         throw "The AzureRunAsConnection asset has not been created in the Automation service."
     }
-    catch {
-        if (!$servicePrincipalConnection)
-        {
-            $ErrorMessage = "Connection $connectionName not found."
-            throw $ErrorMessage
-        } else{
-            Write-Error -Message $_.Exception
-            throw $_.Exception
-        }
-    }
-        
-    $DummyAsset = Get-AutomationVariable -Name "$PlanName-DummyVMGUID"
-    if ($DummyAsset -ne $null)
-    {     
-        $Result = Remove-AzureAutomationVariable -AutomationAccountName $AutomationAccountName -Name ($PlanName + "-DummyVMGUID") -Force       
-    }
-       
-    if ($RecoveryPlanContext.FailoverType -eq "Test")
+
+    # Get the SubscriptionId & TenantId
+    $SubscriptionId = $ServicePrincipalConnection.SubscriptionId
+    $TenantId = $ServicePrincipalConnection.TenantId
+    $ClientId = $ServicePrincipalConnection.ApplicationId
+
+    $SLEEPTIMEOUT = 10    # Value in seconds
+    $SLEEPLARGETIMEOUT = 300    # Value in seconds
+
+    InlineScript
     {
-        # Connect to the StorSimple Resource
-        Write-Output "Connecting to StorSimple Resource $ResourceName"
-        $StorSimpleResource = Select-AzureStorSimpleResource -ResourceName $ResourceName -RegistrationKey $RegistrationKey
-        if ($StorSimpleResource -eq $null)
+        $BaseUrl = $Using:BaseUrl
+        $SubscriptionId = $Using:SubscriptionId
+        $TenantId = $Using:TenantId
+        $ClientId = $Using:ClientId
+        $ClientCertificate = $Using:ClientCertificate
+        $TargetDeviceName = $Using:TargetDeviceName
+        $ResourceGroupName = $Using:ResourceGroupName
+        $ManagerName = $Using:ManagerName
+        $RecoveryPlanContext = $Using:RecoveryPlanContext
+        $SLEEPTIMEOUT = $Using:SLEEPTIMEOUT
+        $SLEEPLARGETIMEOUT = $Using:SLEEPLARGETIMEOUT
+
+        if ($RecoveryPlanContext.FailoverType -eq "Test")
         {
-            throw "Unable to connect to the StorSimple resource $ResourceName"
-        }       
-    
-        $TargetDevice = Get-AzureStorSimpleDevice -DeviceName $TargetDeviceName
-        if ($TargetDevice -eq $null)
-        {
-            throw "Target device $TargetDeviceName does not exist"
-        }
+            # Set Current directory path
+            $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
+            #ls $ScriptDirectory
+
+            # Load all dependent dlls
+            [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
+            [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.dll")) | Out-Null
+            [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.dll")) | Out-Null
+            [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Newtonsoft.Json.dll")) | Out-Null
+            [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.Authentication.dll")) | Out-Null
+            [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Azure.Management.Storsimple8000series.dll")) | Out-Null
+
+            $SyncContext = New-Object System.Threading.SynchronizationContext
+            [System.Threading.SynchronizationContext]::SetSynchronizationContext($SyncContext)
+
+            $BaseUri = New-Object System.Uri -ArgumentList $BaseUrl
             
-        $SLEEPTIMEOUT = 10    # Value in seconds
-        $SLEEPLARGETIMEOUT = 300    # Value in seconds
-        
-        InlineScript
-        {
-            $TargetDeviceName = $Using:TargetDeviceName 
-            $SLEEPTIMEOUT = $Using:SLEEPTIMEOUT
-            $SLEEPLARGETIMEOUT = $Using:SLEEPLARGETIMEOUT
+            # Instantiate clientAssertionCertificate
+            $clientAssertionCertificate = New-Object Microsoft.IdentityModel.Clients.ActiveDirectory.ClientAssertionCertificate -ArgumentList $ClientId, $ClientCertificate
+
+            # Verify Credentials
+            Write-Output "Connecting to Azure"
+            $Credentials = [Microsoft.Rest.Azure.Authentication.ApplicationTokenProvider]::LoginSilentWithCertificateAsync($TenantId, $clientAssertionCertificate).GetAwaiter().GetResult()
+            if ($Credentials -eq $null) {
+                throw "Unable to connect Azure"
+            }
+
+            try {
+                $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $BaseUri, $Credentials
             
-            Write-Output "Initiating cleanup of volumes, backups, backup policies"
-            $VolumeContainers = Get-AzureStorSimpleDeviceVolumeContainer -DeviceName $TargetDeviceName
-    
-            if ($VolumeContainers -ne $null)
-            { 
-                foreach ($Container in $VolumeContainers) 
+                # Sleep for 10 seconds before connecting to Azure
+                Start-Sleep -s $SLEEPTIMEOUT
+            } catch {
+                Write-Error -Message $_.Exception
+                throw $_.Exception
+            }
+
+            # Login into Azure account for PowerShell CmdLets
+            If ($StorSimpleClient -ne $null)
+            {
+                $AzureRmAccount = Add-AzureRmAccount `
+                                    -ServicePrincipal `
+                                    -TenantId $using:ServicePrincipalConnection.TenantId `
+                                    -ApplicationId $using:ServicePrincipalConnection.ApplicationId `
+                                    -CertificateThumbprint $using:ServicePrincipalConnection.CertificateThumbprint
+            }
+            
+            If ($StorSimpleClient -eq $null -or $StorSimpleClient.GenerateClientRequestId -eq $false -or $AzureRmAccount -eq $null) {
+                throw "Unable to connect Azure"
+            }
+            
+            # Set SubscriptionId
+            $StorSimpleClient.SubscriptionId = $SubscriptionId
+
+            try {
+                # Fetch Target StorSimple Device details
+                $TargetDevice = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::Get($StorSimpleClient.Devices, $TargetDeviceName, $ResourceGroupName, $ManagerName)
+            } catch {
+                throw $_.Exception
+            }
+            
+            if ($TargetDevice -eq $null) {
+                throw "Target device ($TargetDeviceName) does not exist"
+            } elseIf ($TargetDevice.Status -ne "Online") {
+                throw "Target device ($TargetDeviceName) is $($TargetDevice.Status)"
+            }
+                
+            Write-Output "Initiating cleanup of volumes and volume containers"
+            try 
+            {
+                $VolumeContainers = [Microsoft.Azure.Management.StorSimple8000Series.VolumeContainersOperationsExtensions]::ListByDevice($StorSimpleClient.VolumeContainers, $TargetDeviceName, $ResourceGroupName, $ManagerName)
+                if ($VolumeContainers -ne $null)
                 {
-                    $Volumes = Get-AzureStorSimpleDeviceVolume -DeviceName $TargetDeviceName -VolumeContainer $Container  
-                    if ($Volumes -ne $null)
+                    foreach ($Container in $VolumeContainers) 
                     {
-                        foreach ($Volume in $Volumes) 
+                        $Volumes = [Microsoft.Azure.Management.StorSimple8000Series.VolumesOperationsExtensions]::ListByVolumeContainer($StorSimpleClient.Volumes, $TargetDeviceName, $Container.Name, $ResourceGroupName, $ManagerName)
+                        if ($Volumes -ne $null) 
                         {
-                            $RetryCount = 0
-                            while ($RetryCount -lt 2)
+                            foreach ($Volume in $Volumes) 
                             {
-                                $isSuccessful = $true
-                                $id = Set-AzureStorSimpleDeviceVolume -DeviceName $TargetDeviceName -VolumeName $Volume.Name -Online $false -WaitForComplete
-                                if (($id -eq $null) -or ($id[0].TaskStatus -ne "Completed"))
+                                $RetryCount = 0
+                                while ($RetryCount -lt 2)
                                 {
-                                    Write-Output ("Volume - $($Volume.Name) could not be taken offline")
-                                    $isSuccessful = $false
-                                }
-                                else
-                                {
-                                    $id = Remove-AzureStorSimpleDeviceVolume -DeviceName $TargetDeviceName -VolumeName $Volume.Name -Force -WaitForComplete
-                                    if (($id -eq $null) -or ($id.TaskStatus -ne "Completed"))
-                                    {
-                                        Write-Output ("Volume - $($Volume.Name) could not be deleted")
+                                    $isSuccessful = $true
+                                    $VolumeStatus = [Microsoft.Azure.Management.StorSimple8000Series.Models.VolumeStatus]::Offline
+                                    $Volume.VolumeStatus = $VolumeStatus
+
+                                    # Set Volume status "Offline"
+                                    $VolumeResult = [Microsoft.Azure.Management.StorSimple8000Series.VolumesOperationsExtensions]::CreateOrUpdate($StorSimpleClient.Volumes, $TargetDeviceName, $Container.Name, $Volume.Name, $Volume, $ResourceGroupName, $ManagerName)
+                                    if ($VolumeResult -eq $null -or $VolumeResult.VolumeStatus -ne $VolumeStatus) {
+                                        Write-Output "Volume - $($Volume.Name) could not be taken offline"
                                         $isSuccessful = $false
+                                    } else {
+                                        # Delete volume container
+                                        [Microsoft.Azure.Management.StorSimple8000Series.VolumesOperationsExtensions]::Delete($StorSimpleClient.Volumes, $TargetDeviceName, $Container.Name, $Volume.Name, $ResourceGroupName, $ManagerName)
                                     }
                                     
-                                }
-                                if ($isSuccessful)
-                                {
-                                    Write-Output ("Volume - $($Volume.Name) deleted")
-                                    break
-                                }
-                                else
-                                {
-                                    if ($RetryCount -eq 0)
-                                    {
-                                        Write-Output "Retrying for volumes deletion"
+                                    # Check whether volume exists or not
+                                    try {
+                                        $VolumeData = [Microsoft.Azure.Management.StorSimple8000Series.VolumesOperationsExtensions]::Get($StorSimpleClient.Volumes, $TargetDeviceName, $Container.Name, $Volume.Name, $ResourceGroupName, $ManagerName)
+                                        $isSuccessful = $false
                                     }
-                                    else
-                                    {
-                                        throw "Unable to delete Volume - $($Volume.Name)"
+                                    catch {
+                                        $isSuccessful = $true
                                     }
-                                                     
-                                    Start-Sleep -s $SLEEPTIMEOUT
-                                    $RetryCount += 1   
+                                    if ($isSuccessful) {
+                                        Write-Output "Volume - $($Volume.Name) deleted"
+                                        break
+                                    }
+                                    else {
+                                        if ($RetryCount -eq 0) {
+                                            Write-Output "Retrying for volumes deletion"
+                                        } else {
+                                            throw "Unable to delete Volume - $($Volume.Name)"
+                                        }
+                                                        
+                                        Start-Sleep -s $SLEEPTIMEOUT
+                                        $RetryCount += 1
+                                    }
                                 }
                             }
                         }
                     }
-                }               
-                
-                Write-Output "Deleting backups"
-                $RetryCount = 0
-                while ($RetryCount -lt 2)
-                {
-                    $allSuccessful = $true
-                    $ids = Get-AzureStorSimpleDeviceBackup -DeviceName $TargetDeviceName | Remove-AzureStorSimpleDeviceBackup -DeviceName $TargetDeviceName -Force -WaitForComplete
-                    Start-Sleep $SLEEPTIMEOUT # Sleep to make sure that backups are really deleted
-
-                    if ($ids -ne $null)
+                    
+                    Start-Sleep -s $SLEEPLARGETIMEOUT
+                    Write-Output "Deleting Volume Containers"
+                    foreach ($Container in $VolumeContainers) 
                     {
-                        foreach ($id in $ids)
-                        {
-                            if ($id.Status -ne "Succeeded")
-                            {
-                                Write-Output "Unable to delete backup - JobID - $($id.TaskId)"
-                                $allSuccessful = $false
-                            }                              
-                        }
-                    }
-                    if ($allSuccessful)
-                    {
-                        Write-Output "Backups deleted"
-                        break
-                    }
-                    else
-                    {
-                        if ($RetryCount -eq 0)
-                        {
-                            Write-Output "Retrying for backups deletion"
-                        }
-                        else
-                        {
-                            throw "Unable to delete backup - JobID - $($id.TaskId)"
-                        }
-                        Start-Sleep -s $SLEEPTIMEOUT
-                        $RetryCount += 1 
-                    }
-                } 
-                   
-                Write-Output "Deleting Backup Policies"
-                $BackupPolicies = Get-AzureStorSimpleDeviceBackupPolicy -DeviceName $TargetDeviceName
-                $PolicyIds =  $BackupPolicies.InstanceId   # Returns all Instance IDs
-                
-                if ($PolicyIds -ne $null)                    
-                {
-                    foreach ($id in $PolicyIds)
-                    {
-                        $RetryCount = 0
+                        $RetryCount = 0 
                         while ($RetryCount -lt 2)
                         {
-                            $PolicyName = ($BackupPolicies | Where-Object {$_.InstanceId -eq $id}).Name
-                            $Result = Remove-AzureStorSimpleDeviceBackupPolicy -DeviceName $TargetDeviceName -BackupPolicyId $id -Force -WaitForComplete
-                                                        
-                            if ($Result -eq $null -or $Result.TaskStatus -ne "Completed")
-                            {
-                                Write-Output "Backup policy - $PolicyName could not be deleted"
-                                if ($RetryCount -eq 0)
-                                {
-                                    Write-Output "Retrying for Backup Policies deletion"
-                                }
-                                else
-                                {
-                                    throw "Unable to delete backup policy - $PolicyName"
-                                }
-                                Start-Sleep -s $SLEEPTIMEOUT
-                                $RetryCount += 1                                
+                            # Delete volume container
+                            [Microsoft.Azure.Management.StorSimple8000Series.VolumeContainersOperationsExtensions]::Delete($StorSimpleClient.VolumeContainers, $TargetDeviceName, $Container.Name, $ResourceGroupName, $ManagerName)
+                            
+                            # Check whether volume container exists or not
+                            try {
+                                [Microsoft.Azure.Management.StorSimple8000Series.VolumeContainersOperationsExtensions]::Get($StorSimpleClient.VolumeContainers, $TargetDeviceName, $Container.Name, $ResourceGroupName, $ManagerName)
+                                $isSuccessful = $false
+                            } catch {
+                                $isSuccessful = $true
                             }
-                            else
-                            {
-                                Write-Output "Backup policy - $PolicyName deleted"
+                            if ($isSuccessful) {
+                                Write-Output "Volume Container - $($Container.Name) deleted"
                                 break
-                            }  
-                        }      
+                            }
+                            else {
+                                if ($RetryCount -eq 0) {
+                                    Write-Output "Retrying for volume container deletion"
+                                } else {
+                                    Write-Output "Unable to delete Volume Container - $($Container.Name)"
+                                }
+                                                
+                                Start-Sleep -s $SLEEPTIMEOUT
+                                $RetryCount += 1   
+                            }
+                        }
                     }
                 }
-
-                Start-Sleep -s $SLEEPLARGETIMEOUT
-                Write-Output "Deleting Volume Containers"
-                foreach ($Container in $VolumeContainers) 
+            } catch {
+                throw $_.Exception
+            }
+            
+            Write-Output "Cleanup completed" 
+            Write-Output "Attempting to shutdown the SVA"
+            if ($TargetDevice -ne $null -and $TargetDevice.Status -eq "Offline") {
+                Write-Output "SVA turned off"
+            }
+            else {
+                $RetryCount = 0
+                while ((($TargetDevice -eq $null) -or ($TargetDevice.Status -ne "Online")) -and $RetryCount -lt 2)
                 {
-                    $RetryCount = 0 
-                    while ($RetryCount -lt 2)
-                    {
-                        $id = Remove-AzureStorSimpleDeviceVolumeContainer -DeviceName $TargetDeviceName -VolumeContainer $Container -Force -WaitForComplete
-                        if ($id -eq $null -or $id.TaskStatus -ne "Completed")
-                        {
-                            Write-Output ("Volume Container - $($Container.Name) could not be deleted")   
-                            if ($RetryCount -eq 0)
-                            {
-                                Write-Output "Retrying for volume container deletion"
-                            }
-                            else
-                            {
-                                throw "Unable to delete Volume Container - $($Container.Name)"
-                            }
-                            Start-Sleep -s $SLEEPLARGETIMEOUT
-                            $RetryCount += 1
+                    try {
+                        $Result = Stop-AzureRmVM -ResourceGroupName $ResourceGroupName -Name $TargetDeviceName -Force
+                    } catch {
+                        Write-Output $_.Exception
+                    }
+                    if ($Result.OperationStatus -eq "Succeeded" -or $Result.Status -eq "Succeeded") {
+                        Write-Output "SVA succcessfully turned off"   
+                        break
+                    } else {
+                        if ($RetryCount -eq 0) {
+                            Write-Output "Retrying for SVA shutdown"
+                        } else {
+                            Write-Output "Unable to stop the SVA VM"
                         }
-                        else
-                        {
-                            Write-Output ("Volume Container - $($Container.Name) deleted")
-                            break
-                        }
+
+                        Start-Sleep -s $SLEEPTIMEOUT
+                        $RetryCount += 1   
                     }
                 }
             }
-      }     
-      
-      Write-Output "Cleanup completed" 
-      Write-Output "Attempting to shutdown the SVA"
-      InlineScript
-      {
-          $TargetDeviceName = $Using:TargetDeviceName
-          $TargetDeviceServiceName = $Using:TargetDeviceServiceName 
-          $SLEEPTIMEOUT = $Using:SLEEPTIMEOUT
-    
-          $TargetDevice = Get-AzureStorSimpleDevice -DeviceName $TargetDeviceName
-          if ($TargetDevice -ne $null -and $TargetDevice.Status -eq "Offline")
-          {
-              Write-Output "SVA turned off"
-          }
-          else
-          {
-              $RetryCount = 0
-              while (($TargetDevice -eq $null) -or ($TargetDevice.Status -ne "Online") -and $RetryCount -lt 2)
-              {   
-                  $Result = Stop-AzureVM -ServiceName $TargetDeviceServiceName -Name $TargetDeviceName -Force
-                  if ($Result.OperationStatus -eq "Succeeded")
-                  {
-                      Write-Output "SVA succcessfully turned off"   
-                      break
-                  }
-                  else
-                  {
-                      if ($RetryCount -eq 0)
-                      {
-                          Write-Output "Retrying for SVA shutdown"
-                      }
-                      else
-                      {
-                          Write-Output "Unable to stop the SVA VM"
-                      }
-                                      
-                      Start-Sleep -s $SLEEPTIMEOUT
-                      $RetryCount += 1   
-                  }
-              }
-           }
-       }
+
+            If ($StorSimpleClient -ne $null -and $StorSimpleClient -is [System.IDisposable]) {
+                $StorSimpleClient.Dispose()
+            }
+        }
     }
 }
