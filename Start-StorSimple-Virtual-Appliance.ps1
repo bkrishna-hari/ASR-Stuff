@@ -8,6 +8,7 @@
     The following have to be added with the Recovery Plan Name as a prefix, eg - TestPlan-StorSimRegKey [where TestPlan is the name of the recovery plan]
     [All these are String variables]
 
+    BaseUrl: The resource manager url of the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
     'RecoveryPlanName'-ResourceGroupName: The name of the resource group on which to read storsimple virtual appliance info
     'RecoveryPlanName'-ResourceName: The name of the StorSimple resource
     'RecoveryPlanName'-TargetDeviceName: The Device on which the containers are to be failed over (the one which needs to be switched on)
@@ -62,7 +63,7 @@ workflow Start-StorSimple-Virtual-Appliance
          throw "The AzureRunAsConnection asset has not been created in the Automation service."
     }
 
-    # Get the SubscriptionId & TenantId
+    # Get the SubscriptionId, TenantId & ApplicationId
     $SubscriptionId = $ServicePrincipalConnection.SubscriptionId
     $TenantId = $ServicePrincipalConnection.TenantId
     $ClientId = $ServicePrincipalConnection.ApplicationId
@@ -108,20 +109,11 @@ workflow Start-StorSimple-Virtual-Appliance
         }
 
         try {
+            # Instantiate StorSimple8000SeriesClient
             $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $BaseUri, $Credentials
         
-            # Sleep for 10 seconds before connecting into Azure
+            # Sleep before connecting to Azure account (PowerShell)
             Start-Sleep -s $SLEEPTIMEOUT
-        } catch {
-            Write-Error -Message $_.Exception
-            throw $_.Exception
-        }
-
-        # Set SubscriptionId
-        $StorSimpleClient.SubscriptionId = $SubscriptionId
-
-        try {
-            $TargetDevice = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::Get($StorSimpleClient.Devices, $TargetDeviceName, $ResourceGroupName, $ManagerName)
         } catch {
             Write-Error -Message $_.Exception
             throw $_.Exception
@@ -139,6 +131,16 @@ workflow Start-StorSimple-Virtual-Appliance
         
         If ($StorSimpleClient -eq $null -or $StorSimpleClient.GenerateClientRequestId -eq $false -or $AzureRmAccount -eq $null) {
             throw "Unable to connect Azure"
+        }
+
+        # Set SubscriptionId
+        $StorSimpleClient.SubscriptionId = $SubscriptionId
+
+        try {
+            $TargetDevice = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::Get($StorSimpleClient.Devices, $TargetDeviceName, $ResourceGroupName, $ManagerName)
+        } catch {
+            Write-Error -Message $_.Exception
+            throw $_.Exception
         }
         
         if ($TargetDevice -eq $null) {

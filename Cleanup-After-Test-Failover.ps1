@@ -10,7 +10,7 @@
     The following have to be added with the Recovery Plan Name as a prefix, eg - TestPlan-StorSimRegKey [where TestPlan is the name of the recovery plan]
     [All these are String variables]
 
-    BaseUrl: The resource manager url for the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
+    BaseUrl: The resource manager url of the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
     'RecoveryPlanName'-ResourceGroupName: The name of the resource group on which to read storsimple virtual appliance info
     'RecoveryPlanName'-ResourceName: The name of the StorSimple resource
     'RecoveryPlanName'-TargetDeviceName: The device on which the test failover was performed (the one which needs to be cleaned up)
@@ -63,7 +63,7 @@ workflow Cleanup-After-Test-Failover
          throw "The AzureRunAsConnection asset has not been created in the Automation service."
     }
 
-    # Get the SubscriptionId & TenantId
+    # Get the SubscriptionId, TenantId & ApplicationId
     $SubscriptionId = $ServicePrincipalConnection.SubscriptionId
     $TenantId = $ServicePrincipalConnection.TenantId
     $ClientId = $ServicePrincipalConnection.ApplicationId
@@ -91,7 +91,7 @@ workflow Cleanup-After-Test-Failover
             $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
             #ls $ScriptDirectory
 
-            # Load all dependent dlls
+            # Load all StorSimple8000Series & dependent dlls
             [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
             [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.dll")) | Out-Null
             [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.dll")) | Out-Null
@@ -115,9 +115,10 @@ workflow Cleanup-After-Test-Failover
             }
 
             try {
+                # Instantiate StorSimple8000SeriesClient
                 $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $BaseUri, $Credentials
             
-                # Sleep for 10 seconds before connecting to Azure
+                # Sleep before connecting to Azure account (PowerShell)
                 Start-Sleep -s $SLEEPTIMEOUT
             } catch {
                 Write-Error -Message $_.Exception
@@ -180,11 +181,11 @@ workflow Cleanup-After-Test-Failover
                                         Write-Output "Volume - $($Volume.Name) could not be taken offline"
                                         $isSuccessful = $false
                                     } else {
-                                        # Delete volume container
+                                        # Delete volume
                                         [Microsoft.Azure.Management.StorSimple8000Series.VolumesOperationsExtensions]::Delete($StorSimpleClient.Volumes, $TargetDeviceName, $Container.Name, $Volume.Name, $ResourceGroupName, $ManagerName)
                                     }
                                     
-                                    # Check whether volume exists or not
+                                    # Check whether volume available or not
                                     try {
                                         $VolumeData = [Microsoft.Azure.Management.StorSimple8000Series.VolumesOperationsExtensions]::Get($StorSimpleClient.Volumes, $TargetDeviceName, $Container.Name, $Volume.Name, $ResourceGroupName, $ManagerName)
                                         $isSuccessful = $false
@@ -221,7 +222,7 @@ workflow Cleanup-After-Test-Failover
                             # Delete volume container
                             [Microsoft.Azure.Management.StorSimple8000Series.VolumeContainersOperationsExtensions]::Delete($StorSimpleClient.VolumeContainers, $TargetDeviceName, $Container.Name, $ResourceGroupName, $ManagerName)
                             
-                            # Check whether volume container exists or not
+                            # Check whether volume container available or not
                             try {
                                 [Microsoft.Azure.Management.StorSimple8000Series.VolumeContainersOperationsExtensions]::Get($StorSimpleClient.VolumeContainers, $TargetDeviceName, $Container.Name, $ResourceGroupName, $ManagerName)
                                 $isSuccessful = $false

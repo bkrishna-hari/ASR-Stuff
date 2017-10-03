@@ -42,7 +42,7 @@ workflow Uninstall-Custom-Script-Extension
         # Get the connection "AzureRunAsConnection"
         $ServicePrincipalConnection = Get-AutomationConnection -Name $ConnectionName
 
-        # Get the SubscriptionId & TenantId
+        # Get the SubscriptionId, TenantId & ApplicationId
         $SubscriptionId = $ServicePrincipalConnection.SubscriptionId
         $TenantId = $ServicePrincipalConnection.TenantId
         $ClientId = $ServicePrincipalConnection.ApplicationId

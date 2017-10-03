@@ -13,10 +13,13 @@
     The following have to be added with the Recovery Plan Name as a prefix, eg - TestPlan-StorSimRegKey [where TestPlan is the name of the recovery plan]
     [All these are String variables]
 
+    BaseUrl: The resource manager url of the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
     'RecoveryPlanName'-ResourceGroupName: The name of the resource group on which to read storsimple virtual appliance info
     'RecoveryPlanName'-ManagerName: The name of the StorSimple resource manager
     'RecoveryPlanName'-DeviceName: The device which has to be failed over
+    'RecoveryPlanName'-DeviceIpAddress: The IP address of the device
     'RecoveryPlanName'-TargetDeviceName: The Device on which the containers are to be failed over (the one which needs to be switched on)
+    'RecoveryPlanName'-TargetDeviceIpAddress: The IP address of the target device
     'RecoveryPlanName'-StorageAccountName: The storage account name in which the script will be stored
     'RecoveryPlanName'-StorageAccountKey: The access key for the storage account
     'RecoveryPlanName'-VMGUIDS: 
@@ -111,7 +114,7 @@ workflow Mount-Volumes-After-Failover
          throw "The AzureRunAsConnection asset has not been created in the Automation service."
     }
 
-    # Get the SubscriptionId & TenantId
+    # Get the SubscriptionId, TenantId & ApplicationId
     $SubscriptionId = $ServicePrincipalConnection.SubscriptionId
     $TenantId = $ServicePrincipalConnection.TenantId
     $ClientId = $ServicePrincipalConnection.ApplicationId
@@ -148,7 +151,7 @@ workflow Mount-Volumes-After-Failover
         # Set Current directory path
         $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
 
-        # Load all dependent dlls
+        # Load all StorSimple8000Series & dependent dlls
         [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
         [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.dll")) | Out-Null
         [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.dll")) | Out-Null
@@ -174,7 +177,7 @@ workflow Mount-Volumes-After-Failover
         try {
             $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $BaseUri, $Credentials
         
-            # Sleep for 10 seconds before connecting into Azure
+            # Sleep before connecting to Azure account (PowerShell)
             Start-Sleep -s $SLEEPTIMEOUT
         } catch {
             Write-Error -Message $_.Exception

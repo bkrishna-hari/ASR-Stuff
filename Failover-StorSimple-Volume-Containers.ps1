@@ -12,7 +12,7 @@
     The following have to be added with the Recovery Plan Name as a prefix, eg - TestPlan-StorSimRegKey [where TestPlan is the name of the recovery plan]
     [All these are String variables]
     
-    BaseUrl: The resource manager url for the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
+    BaseUrl: The resource manager url of the Azure cloud. Get using "Get-AzureRmEnvironment | Select-Object Name, ResourceManagerUrl" cmdlet.
     'RecoveryPlanName'-ResourceGroupName: The name of the resource group on which to read storsimple virtual appliance info
     'RecoveryPlanName'-ResourceName: The name of the StorSimple resource
     'RecoveryPlanName'-DeviceName: The Device which has to be failed over
@@ -83,7 +83,7 @@ workflow Failover-StorSimple-Volume-Containers
          throw "The AzureRunAsConnection asset has not been created in the Automation service."
     }
 
-    # Get the SubscriptionId & TenantId
+    # Get the SubscriptionId, TenantId & ApplicationId
     $SubscriptionId = $ServicePrincipalConnection.SubscriptionId
     $TenantId = $ServicePrincipalConnection.TenantId
     $ClientId = $ServicePrincipalConnection.ApplicationId
@@ -117,7 +117,7 @@ workflow Failover-StorSimple-Volume-Containers
         $ScriptDirectory = "C:\Modules\User\Microsoft.Azure.Management.StorSimple8000Series"
         #ls $ScriptDirectory
 
-        # Load all dependent dlls
+        # Load all StorSimple8000Series & dependent dlls
         [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.IdentityModel.Clients.ActiveDirectory.dll")) | Out-Null
         [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.Azure.dll")) | Out-Null
         [Reflection.Assembly]::LoadFile((Join-Path $ScriptDirectory "Microsoft.Rest.ClientRuntime.dll")) | Out-Null
@@ -143,7 +143,7 @@ workflow Failover-StorSimple-Volume-Containers
         try {
             $StorSimpleClient = New-Object Microsoft.Azure.Management.StorSimple8000Series.StorSimple8000SeriesManagementClient -ArgumentList $BaseUri, $Credentials
         
-            # Sleep before connecting to Azure (PowerShell)
+            # Sleep before connecting to Azure account (PowerShell)
             Start-Sleep -s $SLEEPTIMEOUT
         } catch {
             Write-Error -Message $_.Exception
@@ -189,10 +189,10 @@ workflow Failover-StorSimple-Volume-Containers
         }
     
         try {
-            # Get all volume container groups from a Device which are eligible for a failover
+            # Get all volume container groups from a Device which are eligible for failover
             $eligibleContainers = [Microsoft.Azure.Management.StorSimple8000Series.DevicesOperationsExtensions]::ListFailoverSets($StorSimpleClient.Devices, $DeviceName, $ResourceGroupName, $ManagerName)
 
-            # Filter not eligible volume container(s) for failover
+            # Retrieve only eligible volume container(s) for failover
             $eligibleContainers = ($eligibleContainers | Where-Object {$_.EligibilityResult.IsEligibleForFailover})
         } catch {
             throw $_.Exception
@@ -246,7 +246,7 @@ workflow Failover-StorSimple-Volume-Containers
             throw $_.Exception
         }
 
-        # Filter otherthan CloudSnapshot BackupTypes
+        # Filter otherthan CloudSnapshot backuptypes
         $Backups = $Backups | where BackupType -eq $BackupType
         
         if ($Backups -eq $null -or $Backups.Count -eq 0) {
@@ -298,7 +298,7 @@ workflow Failover-StorSimple-Volume-Containers
                 }
 
                 try {
-                    # Filter other jobs by EntityLabel (BackupPolicyName) comparison
+                    # Filter other jobs by EntityLabel (BackupPolicyName)
                     $jobsListArray = @()
                     foreach ($jobData in $jobList) {
                         if (($BackupPolicNames -eq $jobData.EntityLabel) -ne $null) {
@@ -557,7 +557,7 @@ workflow Failover-StorSimple-Volume-Containers
                         }
                         break
                     }
-                    # Wait for job to complete
+                    # Waiting for clone job(s) to complete
                     Start-Sleep -s $SLEEPTIMEOUT
                 }
             }
