@@ -13,7 +13,7 @@ ms.devlang: NA
 ms.topic: article
 ms.tgt_pltfrm: NA
 ms.workload: NA
-ms.date: 06/07/2017
+ms.date: 10/03/2017
 ms.author: vidarmsft
 
 ---
@@ -185,23 +185,23 @@ You can create a recovery plan in ASR to automate the failover process of the fi
 
    a. Open powershell, create a new folder & change directory to the folder.
 
-      `mkdir C:\scripts\StorSimpleSDKTools --
-      cd C:\scripts\StorSimpleSDKTools`
+         mkdir C:\scripts\StorSimpleSDKTools
+         cd C:\scripts\StorSimpleSDKTools
 
    b. Download nuget CLI under the same folder in Step1.
       Various versions of nuget.exe are available on nuget.org/downloads. Each download link points directly to an .exe file, so be sure to right-click and save the file to your computer rather than running it from the browser.
 
-      wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out C:\scripts\StorSimpleSDKTools\nuget.exe
+         wget https://dist.nuget.org/win-x86-commandline/latest/nuget.exe -Out C:\scripts\StorSimpleSDKTools\nuget.exe
 
    c. Download the dependent SDK
 
-      `C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Azure.Management.Storsimple8000series
-      C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.IdentityModel.Clients.ActiveDirectory -Version 2.28.3
-      C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview`
+         C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Azure.Management.Storsimple8000series
+         C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.IdentityModel.Clients.ActiveDirectory -Version 2.28.3
+         C:\scripts\StorSimpleSDKTools\nuget.exe install Microsoft.Rest.ClientRuntime.Azure.Authentication -Version 2.2.9-preview`
 
    d. Create an Azure Automation Runbook Module for StorSimple 8000 Series device management. Use the below commands to create a Automation module zip file.
 
-         `# set path variables
+         # set path variables
          $downloadDir = "C:\scripts\StorSimpleSDKTools"
          $moduleDir = "$downloadDir\AutomationModule\Microsoft.Azure.Management.StorSimple8000Series"
          #don't change the folder name "Microsoft.Azure.Management.StorSimple8000Series"
@@ -213,7 +213,13 @@ You can create a recovery plan in ASR to automate the failover process of the fi
          copy "$downloadDir\Microsoft.Rest.ClientRuntime.Azure.Authentication.2.2.9-preview\lib\net45\Microsoft.Rest.ClientRuntime.Azure.Authentication*.dll" $moduleDir
          copy "$downloadDir\Microsoft.Azure.Management.Storsimple8000series.1.0.0\lib\net452\Microsoft.Azure.Management.Storsimple8000series*.dll" $moduleDir
          #Don't change the name of the Archive
-         compress-Archive -Path "$moduleDir" -DestinationPath Microsoft.Azure.Management.StorSimple8000Series.zip`
+         compress-Archive -Path "$moduleDir" -DestinationPath Microsoft.Azure.Management.StorSimple8000Series.zip
+
+     e. Import the Azure Automation module zip file (Microsoft.Azure.Management.StorSimple8000Series.zip) created in above step. This can be done by selecting the Automation Account, click **Modules** under SHARED RESOURCES and then click **Add a module**.
+
+  **Modules** tab should appear as follows after you add the module.
+
+   ![](./media/storsimple-disaster-recovery-using-azure-site-recovery/image12.png)
 
 8. Go to the **Recovery Services** section and select the Azure Site Recovery vault that you created earlier.
 9. Select the **Recovery Plans (Site Recovery)** option from **Manage** group and create a new recovery plan as follows:
